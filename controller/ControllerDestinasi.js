@@ -1,205 +1,218 @@
-const Item = require('../models/ModelDestinasi');
+const Destinasi = require('../models/destinasiModel');
+const path = require('path');
+const fs = require('fs');
+const { uploadDir } = require('../config/multerConfig');
 
-const itemController = {
-  // Create new item
-  createItem: async (req, res) => {
+const deleteFile = (filename) => {
+  if (filename) {
+    const filePath = path.join(uploadDir, filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
+};
+
+const destinasiController = {
+  createDestinasi: async (req, res) => {
     try {
-      const { nama, tempat, lokasi, gambar, deskripsi } = req.body;
-      
-      // Validasi input lebih lengkap
-      if (!nama || !nama.trim()) {
-        return res.status(400).json({ 
-          success: false,
-          message: 'Nama destinasi harus diisi' 
-        });
+      const { nama, tempat, lokasi, deskripsi } = req.body;
+      const gambar = req.file ? req.file.filename : null;
+
+      // Validasi
+      if (!nama?.trim()) {
+        deleteFile(gambar);
+        return res.status(400).json({ success: false, message: 'Nama destinasi harus diisi' });
       }
-      
-      if (!deskripsi || !deskripsi.trim()) {
-        return res.status(400).json({ 
-          success: false,
-          message: 'Deskripsi destinasi harus diisi' 
-        });
+      if (!tempat?.trim()) {
+        deleteFile(gambar);
+        return res.status(400).json({ success: false, message: 'Tempat destinasi harus diisi' });
       }
 
-      const id = await Item.create({ 
+      const id = await Destinasi.create({ 
         nama: nama.trim(), 
-        tempat: tempat ? tempat.trim() : null, 
-        lokasi: lokasi ? lokasi.trim() : null, 
+        tempat: tempat.trim(), 
+        lokasi: lokasi?.trim(), 
         gambar, 
         deskripsi: deskripsi.trim() 
       });
-      
+
       res.status(201).json({
         success: true,
         message: 'Destinasi berhasil dibuat',
-        data: { id }
+        data: { 
+          id,
+          gambar: gambar ? `/uploads/${gambar}` : null
+        }
       });
     } catch (err) {
-      console.error('Error creating item:', err);
-      res.status(500).json({ 
+      deleteFile(req.file?.filename);
+      res.status(500).json({
         success: false,
         message: 'Gagal membuat destinasi',
-        error: err.message 
+        error: err.message
       });
     }
   },
 
-  // Get all items
-  getAllItems: async (req, res) => {
+  getAllDestinasi: async (req, res) => {
     try {
-      const items = await Item.getAll();
-      
+      const destinasi = await Destinasi.getAll();
+      const result = destinasi.map(d => ({
+        ...d,
+        gambar: d.gambar ? `/uploads/${d.gambar}` : null
+      }));
+
       res.json({
         success: true,
-        message: items.length > 0 ? 'Data destinasi ditemukan' : 'Tidak ada data destinasi',
-        count: items.length,
-        data: items
+        message: result.length ? 'Data destinasi ditemukan' : 'Tidak ada data destinasi',
+        count: result.length,
+        data: result
       });
     } catch (err) {
-      console.error('Error getting items:', err);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
         message: 'Gagal mengambil data destinasi',
-        error: err.message 
+        error: err.message
       });
     }
   },
 
-  // Get item by ID
-  getItemById: async (req, res) => {
+  getDestinasiById: async (req, res) => {
     try {
-      const item = await Item.getById(req.params.id);
-      
-      if (!item) {
+      const destinasi = await Destinasi.getById(req.params.id);
+      if (!destinasi) {
         return res.status(404).json({ 
-          success: false,
+          success: false, 
           message: 'Destinasi tidak ditemukan' 
         });
       }
-      
+
       res.json({
         success: true,
         message: 'Destinasi ditemukan',
-        data: item
+        data: {
+          ...destinasi,
+          gambar: destinasi.gambar ? `/uploads/${destinasi.gambar}` : null
+        }
       });
     } catch (err) {
-      console.error('Error getting item:', err);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
         message: 'Gagal mengambil data destinasi',
-        error: err.message 
+        error: err.message
       });
     }
   },
 
-  // Update item
-  updateItem: async (req, res) => {
+  updateDestinasi: async (req, res) => {
     try {
       const { id } = req.params;
-      const { nama, tempat, lokasi, gambar, deskripsi } = req.body;
-      
-      // Validasi input
-      if (!nama || !nama.trim() || !deskripsi || !deskripsi.trim()) {
-        return res.status(400).json({ 
-          success: false,
-          message: 'Nama dan deskripsi harus diisi' 
-        });
+      const { nama, tempat, lokasi, deskripsi, currentImage } = req.body;
+      let gambar = currentImage?.replace('/uploads/', '');
+
+      if (req.file) {
+        gambar = req.file.filename;
+        deleteFile(currentImage?.replace('/uploads/', ''));
       }
-      
-      // Cek apakah item ada
-      const existingItem = await Item.getById(id);
-      if (!existingItem) {
-        return res.status(404).json({ 
-          success: false,
-          message: 'Destinasi tidak ditemukan' 
-        });
+
+      // Validasi
+      if (!nama?.trim()) {
+        deleteFile(req.file?.filename);
+        return res.status(400).json({ success: false, message: 'Nama destinasi harus diisi' });
       }
-      
-      await Item.update(id, { 
+
+      const existing = await Destinasi.getById(id);
+      if (!existing) {
+        deleteFile(req.file?.filename);
+        return res.status(404).json({ success: false, message: 'Destinasi tidak ditemukan' });
+      }
+
+      await Destinasi.update(id, { 
         nama: nama.trim(), 
-        tempat: tempat ? tempat.trim() : null, 
-        lokasi: lokasi ? lokasi.trim() : null, 
+        tempat: tempat.trim(), 
+        lokasi: lokasi?.trim(), 
         gambar, 
         deskripsi: deskripsi.trim() 
       });
-      
+
       res.json({
         success: true,
         message: 'Destinasi berhasil diperbarui',
-        data: { id }
+        data: { 
+          id,
+          gambar: gambar ? `/uploads/${gambar}` : null
+        }
       });
     } catch (err) {
-      console.error('Error updating item:', err);
-      res.status(500).json({ 
+      deleteFile(req.file?.filename);
+      res.status(500).json({
         success: false,
         message: 'Gagal memperbarui destinasi',
-        error: err.message 
+        error: err.message
       });
     }
   },
 
-  // Delete item
-  deleteItem: async (req, res) => {
+  deleteDestinasi: async (req, res) => {
     try {
       const { id } = req.params;
+      const destinasi = await Destinasi.getById(id);
       
-      // Cek apakah item ada
-      const existingItem = await Item.getById(id);
-      if (!existingItem) {
+      if (!destinasi) {
         return res.status(404).json({ 
-          success: false,
+          success: false, 
           message: 'Destinasi tidak ditemukan' 
         });
       }
-      
-      await Item.delete(id);
-      
+
+      deleteFile(destinasi.gambar);
+      await Destinasi.delete(id);
+
       res.json({
         success: true,
         message: 'Destinasi berhasil dihapus',
         data: { id }
       });
     } catch (err) {
-      console.error('Error deleting item:', err);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
         message: 'Gagal menghapus destinasi',
-        error: err.message 
+        error: err.message
       });
     }
   },
 
-  // Search items by name
-  searchItems: async (req, res) => {
+  searchDestinasi: async (req, res) => {
     try {
-      const { keyword } = req.query; // Mengubah dari params ke query
+      const { keyword } = req.query;
       
-      if (!keyword || keyword.trim() === '') {
+      if (!keyword?.trim()) {
         return res.status(400).json({ 
-          success: false,
+          success: false, 
           message: 'Kata kunci pencarian harus diisi' 
         });
       }
-      
-      const items = await Item.searchByName(keyword.trim());
-      
+
+      const destinasi = await Destinasi.search(keyword.trim());
+      const result = destinasi.map(d => ({
+        ...d,
+        gambar: d.gambar ? `/uploads/${d.gambar}` : null
+      }));
+
       res.json({
         success: true,
-        message: items.length > 0 
-          ? `Ditemukan ${items.length} destinasi` 
-          : 'Tidak ditemukan destinasi',
-        count: items.length,
-        data: items
+        message: result.length ? `Ditemukan ${result.length} destinasi` : 'Tidak ditemukan destinasi',
+        count: result.length,
+        data: result
       });
     } catch (err) {
-      console.error('Error searching items:', err);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
         message: 'Gagal melakukan pencarian',
-        error: err.message 
+        error: err.message
       });
     }
   }
 };
 
-module.exports = itemController;
+module.exports = destinasiController;
