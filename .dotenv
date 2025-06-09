@@ -1,0 +1,23 @@
+# Server Configuration
+PORT=3000
+HOST=192.168.72.130
+NODE_ENV=development
+API_VERSION=v1
+API_PREFIX=/api
+
+# Database Configuration
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=travel
+DB_CONNECTION_LIMIT=10
+DB_QUEUE_LIMIT=0
+
+# CORS Configuration
+CORS_ORIGIN=*
+CORS_METHODS=GET,HEAD,PUT,PATCH,POST,DELETE
+CORS_CREDENTIALS=false
+
+# Upload Configuration
+UPLOAD_DIR=uploads
+MAX_FILE_SIZE=10485760 # 10MB in bytes
